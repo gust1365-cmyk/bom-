@@ -4,67 +4,62 @@ on:
   push:
     branches: [ main, master ]
     tags:     [ 'v*' ]
-  workflow_dispatch:          # 수동 실행 버튼
+  workflow_dispatch:
 
 jobs:
   build-windows:
-    runs-on: windows-latest   # Windows 환경에서 빌드
+    runs-on: windows-2022
 
     steps:
-      # 1. 소스 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Python 설치
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3. 의존성 설치
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pywebview pyinstaller
+          pip install pywebview==4.4.1 pyinstaller==6.11.1
 
-      # 4. PyInstaller로 EXE 빌드
-      - name: Build EXE with PyInstaller
+      - name: Check files
         run: |
-          pyinstaller BOM_소요량계산기.spec
+          echo "=== Root files ==="
+          dir
+          echo "=== app folder ==="
+          dir app
 
-      # 5. 빌드 결과 확인
-      - name: Verify build output
+      - name: Build EXE
         run: |
-          ls dist/
-          echo "EXE size:"
-          (Get-Item dist/BOM_소요량계산기.exe).Length / 1MB
+          pyinstaller --onefile --windowed `
+            --name "BOM_소요량계산기" `
+            --add-data "app/BOM_소요량계산기.html;." `
+            app/main.py
 
-      # 6. Artifact로 업로드 (항상 — 태그 없어도 다운로드 가능)
-      - name: Upload EXE as artifact
+      - name: Verify build
+        run: |
+          dir dist
+          $size = (Get-Item "dist\BOM_소요량계산기.exe").Length / 1MB
+          Write-Host "EXE size: $([math]::Round($size,1)) MB"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: BOM_소요량계산기_Windows
-          path: dist/BOM_소요량계산기.exe
+          path: dist\BOM_소요량계산기.exe
           retention-days: 30
 
-      # 7. 태그 푸시일 때만 GitHub Release에 첨부
-      - name: Create GitHub Release
+      - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/BOM_소요량계산기.exe
+          files: dist\BOM_소요량계산기.exe
           name: "BOM 소요량 계산기 ${{ github.ref_name }}"
           body: |
             ## BOM 소요량 계산기 ${{ github.ref_name }}
-
-            ### 다운로드
-            아래 `BOM_소요량계산기.exe` 를 다운로드하여 더블클릭으로 실행하세요.
+            `BOM_소요량계산기.exe` 를 다운로드하여 더블클릭으로 실행하세요.
             Python 설치 불필요.
-
-            ### 사용법
-            1. EXE 더블클릭 실행
-            2. BOM 역전개 텍스트 파일(.txt / .tsv) 드래그 또는 선택
-            3. 집계 옵션 설정 후 **소요량 계산 실행** 클릭
-            4. 결과 확인 후 **엑셀 다운로드**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
