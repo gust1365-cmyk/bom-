@@ -35,7 +35,7 @@ jobs:
         run: |
           pyinstaller --onefile --windowed `
             --name "BOM_소요량계산기" `
-            --add-data "app/BOM_소요량계산기.html;." `
+            --add-data "app\BOM_소요량계산기.html;." `
             app/main.py
 
       - name: Verify build
